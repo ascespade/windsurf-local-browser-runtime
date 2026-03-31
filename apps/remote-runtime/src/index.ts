@@ -5,9 +5,11 @@ import type {
   RemoteProjectStartInput,
 } from '@wlbr/protocol';
 import { RemoteRuntime } from './runtime.js';
-import { StdioJsonRpcServer } from './stdio.js';
+import { StdioJsonRpcServer } from '@wlbr/protocol';
 
-export async function createRemoteRuntime(rootDir = resolve(process.cwd(), '.wlbr')): Promise<RemoteRuntime> {
+export async function createRemoteRuntime(
+  rootDir = resolve(process.cwd(), '.wlbr'),
+): Promise<RemoteRuntime> {
   const runtime = new RemoteRuntime(rootDir);
   await runtime.init();
   return runtime;
@@ -17,11 +19,19 @@ async function main(): Promise<void> {
   const runtime = await createRemoteRuntime();
   const server = new StdioJsonRpcServer();
 
-  server.register('remote.project.inspect', async (params) => runtime.inspect(params as unknown as RemoteProjectInspectInput));
-  server.register('remote.project.start', async (params) => runtime.start(params as unknown as RemoteProjectStartInput));
+  server.register('remote.project.inspect', async (params) =>
+    runtime.inspect(params as unknown as RemoteProjectInspectInput),
+  );
+  server.register('remote.project.start', async (params) =>
+    runtime.start(params as unknown as RemoteProjectStartInput),
+  );
   server.register('remote.project.list', async () => runtime.list());
-  server.register('remote.project.stop', async (params) => runtime.stop(String(params['projectId'])));
-  server.register('remote.project.health', async (params) => runtime.health(params as unknown as RemoteHealthCheckInput));
+  server.register('remote.project.stop', async (params) =>
+    runtime.stop(String(params['projectId'])),
+  );
+  server.register('remote.project.health', async (params) =>
+    runtime.health(params as unknown as RemoteHealthCheckInput),
+  );
 
   server.listen();
 }

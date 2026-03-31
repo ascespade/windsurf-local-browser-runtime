@@ -1,4 +1,4 @@
-import type { StdioJsonRpcMessage } from '@wlbr/protocol';
+import type { StdioJsonRpcMessage } from '@wlbr/shared-types';
 
 type Handler = (params: Record<string, unknown>) => Promise<unknown>;
 

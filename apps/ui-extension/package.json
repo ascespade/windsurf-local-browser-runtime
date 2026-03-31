@@ -35,7 +35,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "node --watch --experimental-strip-types src/extension.ts",
     "lint": "eslint src --ext .ts",
-    "test": "node --test --experimental-strip-types",
+    "test": "node --test --experimental-strip-types tests/**/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rimraf dist"
   },

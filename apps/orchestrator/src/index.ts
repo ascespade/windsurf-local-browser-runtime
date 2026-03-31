@@ -14,60 +14,80 @@ export interface LaunchAndProbeResult {
   evidenceBundle: ReturnType<typeof createEvidenceBundle>;
 }
 
-export async function runLaunchAndProbe(input: OrchestratorTaskInput): Promise<LaunchAndProbeResult> {
-  const browserClient = new LocalToolClient(
-    process.execPath,
-    ['--experimental-strip-types', resolve(process.cwd(), 'apps/browser-mcp/src/index.ts')],
-  );
-  const remoteClient = new LocalToolClient(
-    process.execPath,
-    ['--experimental-strip-types', resolve(process.cwd(), 'apps/remote-runtime/src/index.ts')],
-  );
+export async function runLaunchAndProbe(
+  input: OrchestratorTaskInput,
+): Promise<LaunchAndProbeResult> {
+  const browserClient = new LocalToolClient(process.execPath, [
+    '--experimental-strip-types',
+    resolve(process.cwd(), 'apps/browser-mcp/src/index.ts'),
+  ]);
+  const remoteClient = new LocalToolClient(process.execPath, [
+    '--experimental-strip-types',
+    resolve(process.cwd(), 'apps/remote-runtime/src/index.ts'),
+  ]);
 
   try {
-    const remoteProject = await remoteClient.call<RemoteProjectRecord>('remote.project.start', {
-      cwd: input.cwd,
-      strategy: 'auto',
-    });
+    const remoteProject = await remoteClient.call<RemoteProjectRecord>(
+      'remote.project.start',
+      {
+        cwd: input.cwd,
+        strategy: 'auto',
+      },
+    );
 
     const targetUrl = input.targetUrl ?? remoteProject.url;
     if (!targetUrl) {
       throw new Error('Remote runtime did not return a URL');
     }
 
-    const browserSession = await browserClient.call<BrowserSessionRecord>('browser.launch', {
-      sessionName: input.sessionName ?? 'default-visible-session',
-      profileStrategy: 'isolated',
-      baseUrl: targetUrl,
-    });
+    const browserSession = await browserClient.call<BrowserSessionRecord>(
+      'browser.launch',
+      {
+        sessionName: input.sessionName ?? 'default-visible-session',
+        profileStrategy: 'isolated',
+        baseUrl: targetUrl,
+      },
+    );
 
     await withRetry(5, async () => {
-      const health = await remoteClient.call<{ ok: boolean; status?: number }>('remote.project.health', {
-        url: targetUrl,
-        timeoutMs: 3000,
-      });
+      const health = await remoteClient.call<{ ok: boolean; status?: number }>(
+        'remote.project.health',
+        {
+          url: targetUrl,
+          timeoutMs: 3000,
+        },
+      );
       if (!health.ok) {
-        throw new Error(`Health check failed for ${targetUrl}; status=${health.status ?? 'unknown'}`);
+        throw new Error(
+          `Health check failed for ${targetUrl}; status=${health.status ?? 'unknown'}`,
+        );
       }
       return health;
     });
 
-    const snapshot = await browserClient.call<{ bundlePath: string; bundleSummary: string }>('browser.snapshot', {
+    const snapshot = await browserClient.call<{
+      bundlePath: string;
+      bundleSummary: string;
+    }>('browser.snapshot', {
       sessionId: browserSession.id,
       format: 'screenshot',
     });
 
-    const evidenceBundle = createEvidenceBundle('Launch-and-probe run complete', [
-      {
-        kind: 'report',
-        path: snapshot.bundlePath,
-        description: snapshot.bundleSummary,
-      },
-    ], [
-      `project=${remoteProject.id}`,
-      `session=${browserSession.id}`,
-      `url=${targetUrl}`,
-    ]);
+    const evidenceBundle = createEvidenceBundle(
+      'Launch-and-probe run complete',
+      [
+        {
+          kind: 'report',
+          path: snapshot.bundlePath,
+          description: snapshot.bundleSummary,
+        },
+      ],
+      [
+        `project=${remoteProject.id}`,
+        `session=${browserSession.id}`,
+        `url=${targetUrl}`,
+      ],
+    );
 
     return {
       remoteProject,

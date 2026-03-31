@@ -6,6 +6,7 @@
         "title": "Governance Lock Implementation",
         "description": "Create locked governance files and guard commands",
         "priority": 0,
+        "status": "completed",
         "dependencies": [],
         "verification": [
           "pnpm guard:verify",
@@ -18,10 +19,11 @@
         "agent": "cascade"
       },
       "truth_lock": {
-        "id": "truth_lock", 
+        "id": "truth_lock",
         "title": "Truth Lock Update",
         "description": "Update CURRENT_TRUTH.md with accurate repository state",
         "priority": 1,
+        "status": "completed",
         "dependencies": ["governance_lock"],
         "verification": [
           "pnpm guard:verify",
@@ -35,11 +37,7 @@
         "description": "Console/network capture, evidence sinks, richer actions",
         "priority": 2,
         "dependencies": ["governance_lock", "truth_lock"],
-        "verification": [
-          "pnpm build",
-          "pnpm test",
-          "pnpm guard:verify"
-        ],
+        "verification": ["pnpm build", "pnpm test", "pnpm guard:verify"],
         "agent": "browser_runtime_specialist"
       },
       "test_foundation": {
@@ -48,10 +46,7 @@
         "description": "Real test coverage for core units",
         "priority": 3,
         "dependencies": ["governance_lock", "truth_lock"],
-        "verification": [
-          "pnpm test",
-          "pnpm guard:verify"
-        ],
+        "verification": ["pnpm test", "pnpm guard:verify"],
         "agent": "cascade"
       },
       "runtime_hardening": {
@@ -60,11 +55,7 @@
         "description": "Project detection, process management improvements",
         "priority": 2,
         "dependencies": ["governance_lock", "truth_lock"],
-        "verification": [
-          "pnpm build",
-          "pnpm test",
-          "pnpm guard:verify"
-        ],
+        "verification": ["pnpm build", "pnpm test", "pnpm guard:verify"],
         "agent": "remote_runtime_specialist"
       },
       "orchestrator_hardening": {
@@ -73,11 +64,7 @@
         "description": "Workflow coordination and retry logic improvements",
         "priority": 2,
         "dependencies": ["governance_lock", "truth_lock"],
-        "verification": [
-          "pnpm build",
-          "pnpm test",
-          "pnpm guard:verify"
-        ],
+        "verification": ["pnpm build", "pnpm test", "pnpm guard:verify"],
         "agent": "orchestrator_specialist"
       },
       "ui_extension_completion": {
@@ -86,10 +73,7 @@
         "description": "VS Code integration and command handling",
         "priority": 3,
         "dependencies": ["governance_lock", "truth_lock"],
-        "verification": [
-          "pnpm build",
-          "pnpm guard:verify"
-        ],
+        "verification": ["pnpm build", "pnpm guard:verify"],
         "agent": "ui_extension_specialist"
       }
     },
@@ -100,13 +84,13 @@
         "type": "dependency"
       },
       {
-        "from": "truth_lock", 
+        "from": "truth_lock",
         "to": "browser_hardening",
         "type": "dependency"
       },
       {
         "from": "truth_lock",
-        "to": "test_foundation", 
+        "to": "test_foundation",
         "type": "dependency"
       },
       {
@@ -125,8 +109,13 @@
         "type": "dependency"
       }
     ],
-    "current_work": "truth_lock",
-    "next_allowed": ["browser_hardening", "test_foundation", "runtime_hardening", "orchestrator_hardening", "ui_extension_completion"],
+    "current_work": "test_foundation",
+    "next_allowed": [
+      "browser_hardening",
+      "runtime_hardening",
+      "orchestrator_hardening",
+      "ui_extension_completion"
+    ],
     "blocked": []
   }
 }

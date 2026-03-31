@@ -1,6 +1,6 @@
-import { spawn, ChildProcess } from 'node:child_process';
+import { spawn } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 
-// @ts-nocheck
 interface JsonRpcRequest {
   jsonrpc: '2.0';
   id: string;
@@ -32,21 +32,36 @@ export class LocalToolClient {
     });
 
     this.child.stdout?.setEncoding('utf8');
-    this.child.stdout?.on('data', (chunk) => {
+    this.child.stdout?.on('data', (chunk: string) => {
       this.buffer += chunk;
       let newlineIndex = this.buffer.indexOf('\n');
       while (newlineIndex >= 0) {
         const line = this.buffer.slice(0, newlineIndex).trim();
         this.buffer = this.buffer.slice(newlineIndex + 1);
         if (line) {
-          const response = JSON.parse(line) as JsonRpcResponse;
-          if (response.id && this.pending.has(String(response.id))) {
-            this.pending.get(String(response.id))?.(response);
-            this.pending.delete(String(response.id));
+          try {
+            const response = JSON.parse(line) as JsonRpcResponse;
+            if (response.id && this.pending.has(String(response.id))) {
+              this.pending.get(String(response.id))?.(response);
+              this.pending.delete(String(response.id));
+            }
+          } catch {
+            // Non-JSON output from child process, ignore
           }
         }
         newlineIndex = this.buffer.indexOf('\n');
       }
+    });
+
+    this.child.on('error', (err) => {
+      for (const [id, resolve] of this.pending) {
+        resolve({
+          jsonrpc: '2.0',
+          id,
+          error: { code: 'spawn_error', message: err.message },
+        });
+      }
+      this.pending.clear();
     });
   }
 
