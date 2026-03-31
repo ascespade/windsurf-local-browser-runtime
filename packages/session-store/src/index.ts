@@ -79,7 +79,7 @@ export class FileBackedSessionStore extends InMemorySessionStore {
       const sessions = Array.isArray(parsed) ? parsed : (parsed.sessions ?? []);
       // Convert null back to undefined for consistency
       const normalizedSessions = sessions.map(session => {
-        const normalized: any = { ...session };
+        const normalized: Record<string, unknown> = { ...session };
         Object.keys(normalized).forEach(key => {
           if (normalized[key] === null) {
             normalized[key] = undefined;
@@ -124,7 +124,7 @@ export class FileBackedSessionStore extends InMemorySessionStore {
     // Use a custom replacer to preserve undefined values as null
     const payload: SessionStoreShape = {
       sessions: sessions.map(session => {
-        const serialized: any = { ...session };
+        const serialized: Record<string, unknown> = { ...session };
         // Convert undefined to null for JSON serialization
         Object.keys(serialized).forEach(key => {
           if (serialized[key] === undefined) {

@@ -70,12 +70,24 @@ export class RemoteRuntime {
       HOST: '0.0.0.0',
     };
 
+    if (!plan.supported || !plan.startCommand) {
+      throw new Error(plan.reason ?? `Remote runtime cannot start unsupported project in ${input.cwd}`);
+    }
+
     const child = spawn(plan.startCommand, {
       cwd: input.cwd,
       env,
       shell: true,
       detached: false,
       stdio: 'ignore',
+    });
+
+    child.on('exit', () => {
+      const existing = this.state.projects.find((project) => project.id === id);
+      if (!existing) return;
+      existing.state = existing.state === 'stopped' ? 'stopped' : 'failed';
+      existing.updatedAt = nowIso();
+      void this.flush();
     });
 
     this.processes.set(id, child);
@@ -97,14 +109,16 @@ export class RemoteRuntime {
       updatedAt: timestamp,
     };
 
-    this.state.projects.push(record);
-    await this.flush();
-
-    return {
+    const runningRecord = {
       ...record,
       state: 'running',
       updatedAt: nowIso(),
     };
+
+    this.state.projects.push(runningRecord);
+    await this.flush();
+
+    return runningRecord;
   }
 
   list(): RemoteProjectRecord[] {

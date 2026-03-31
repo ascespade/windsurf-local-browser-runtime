@@ -24,7 +24,9 @@
         "description": "Update CURRENT_TRUTH.md with accurate repository state",
         "priority": 1,
         "status": "completed",
-        "dependencies": ["governance_lock"],
+        "dependencies": [
+          "governance_lock"
+        ],
         "verification": [
           "pnpm guard:verify",
           "cat docs/reports/CURRENT_TRUTH.md"
@@ -36,26 +38,48 @@
         "title": "Browser Runtime Hardening",
         "description": "Console/network capture, evidence sinks, richer actions",
         "priority": 2,
-        "dependencies": ["governance_lock", "truth_lock"],
-        "verification": ["pnpm build", "pnpm test", "pnpm guard:verify"],
-        "agent": "browser_runtime_specialist"
+        "dependencies": [
+          "governance_lock",
+          "truth_lock"
+        ],
+        "verification": [
+          "pnpm build",
+          "pnpm test",
+          "pnpm guard:verify"
+        ],
+        "agent": "browser_runtime_specialist",
+        "status": "in_progress"
       },
       "test_foundation": {
         "id": "test_foundation",
         "title": "Test Foundation Creation",
         "description": "Real test coverage for core units",
         "priority": 3,
-        "dependencies": ["governance_lock", "truth_lock"],
-        "verification": ["pnpm test", "pnpm guard:verify"],
-        "agent": "cascade"
+        "dependencies": [
+          "governance_lock",
+          "truth_lock"
+        ],
+        "verification": [
+          "pnpm test",
+          "pnpm guard:verify"
+        ],
+        "agent": "cascade",
+        "status": "completed"
       },
       "runtime_hardening": {
         "id": "runtime_hardening",
         "title": "Remote Runtime Hardening",
         "description": "Project detection, process management improvements",
         "priority": 2,
-        "dependencies": ["governance_lock", "truth_lock"],
-        "verification": ["pnpm build", "pnpm test", "pnpm guard:verify"],
+        "dependencies": [
+          "governance_lock",
+          "truth_lock"
+        ],
+        "verification": [
+          "pnpm build",
+          "pnpm test",
+          "pnpm guard:verify"
+        ],
         "agent": "remote_runtime_specialist"
       },
       "orchestrator_hardening": {
@@ -63,8 +87,15 @@
         "title": "Orchestrator Hardening",
         "description": "Workflow coordination and retry logic improvements",
         "priority": 2,
-        "dependencies": ["governance_lock", "truth_lock"],
-        "verification": ["pnpm build", "pnpm test", "pnpm guard:verify"],
+        "dependencies": [
+          "governance_lock",
+          "truth_lock"
+        ],
+        "verification": [
+          "pnpm build",
+          "pnpm test",
+          "pnpm guard:verify"
+        ],
         "agent": "orchestrator_specialist"
       },
       "ui_extension_completion": {
@@ -72,8 +103,14 @@
         "title": "UI Extension Completion",
         "description": "VS Code integration and command handling",
         "priority": 3,
-        "dependencies": ["governance_lock", "truth_lock"],
-        "verification": ["pnpm build", "pnpm guard:verify"],
+        "dependencies": [
+          "governance_lock",
+          "truth_lock"
+        ],
+        "verification": [
+          "pnpm build",
+          "pnpm guard:verify"
+        ],
         "agent": "ui_extension_specialist"
       }
     },
@@ -109,11 +146,10 @@
         "type": "dependency"
       }
     ],
-    "current_work": "test_foundation",
+    "current_work": "browser_hardening",
     "next_allowed": [
-      "browser_hardening",
-      "runtime_hardening",
       "orchestrator_hardening",
+      "runtime_hardening",
       "ui_extension_completion"
     ],
     "blocked": []

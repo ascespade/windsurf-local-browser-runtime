@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import * as vscode from 'vscode';
-import { commands } from './commands.js';
+import { commands, findCommandSpec, type ExtensionCommand } from './commands.js';
 
 export { commands };
 export type { ExtensionCommand } from './commands.js';
@@ -10,9 +10,27 @@ function currentWorkspacePath(): string {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
 }
 
-function runDetached(args: string[]): void {
+function createOutputChannel(): vscode.OutputChannel {
+  return vscode.window.createOutputChannel('WLBR');
+}
+
+function buildDetachedArgs(command: ExtensionCommand, workspacePath: string): string[] {
+  const extraArgs = command.id === 'wlbr.orchestrator.launchAndProbe' ? [workspacePath] : [];
+  return [
+    '--experimental-strip-types',
+    resolve(workspacePath, command.entrypoint),
+    ...extraArgs,
+  ];
+}
+
+function runDetached(command: ExtensionCommand, output: vscode.OutputChannel): void {
+  const workspacePath = currentWorkspacePath();
+  const args = buildDetachedArgs(command, workspacePath);
+  output.appendLine(`[WLBR] launching ${command.id}`);
+  output.appendLine(`[WLBR] cwd=${workspacePath}`);
+  output.appendLine(`[WLBR] args=${JSON.stringify(args)}`);
   const child = spawn(process.execPath, args, {
-    cwd: currentWorkspacePath(),
+    cwd: workspacePath,
     stdio: 'ignore',
     detached: true,
   });
@@ -20,44 +38,21 @@ function runDetached(args: string[]): void {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  context.subscriptions.push(
-    vscode.commands.registerCommand('wlbr.browser.launchVisible', () => {
-      runDetached([
-        '--experimental-strip-types',
-        resolve(currentWorkspacePath(), 'apps/browser-mcp/src/index.ts'),
-      ]);
-      void vscode.window.showInformationMessage(
-        'WLBR browser runtime launched.',
-      );
-    }),
-  );
+  const output = createOutputChannel();
+  context.subscriptions.push(output);
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand('wlbr.remote.startProject', () => {
-      runDetached([
-        '--experimental-strip-types',
-        resolve(currentWorkspacePath(), 'apps/remote-runtime/src/index.ts'),
-      ]);
-      void vscode.window.showInformationMessage(
-        'WLBR remote runtime launched.',
-      );
-    }),
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('wlbr.orchestrator.launchAndProbe', () => {
-      runDetached([
-        '--experimental-strip-types',
-        resolve(currentWorkspacePath(), 'apps/orchestrator/src/index.ts'),
-        currentWorkspacePath(),
-      ]);
-      void vscode.window.showInformationMessage(
-        'WLBR launch-and-probe flow started.',
-      );
-    }),
-  );
+  for (const command of commands) {
+    context.subscriptions.push(
+      vscode.commands.registerCommand(command.id, () => {
+        runDetached(command, output);
+        void vscode.window.showInformationMessage(command.successMessage);
+      }),
+    );
+  }
 }
 
 export function deactivate(): void {
   // no-op
 }
+
+export { buildDetachedArgs, findCommandSpec };

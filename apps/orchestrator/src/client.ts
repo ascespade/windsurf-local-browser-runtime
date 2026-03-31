@@ -15,16 +15,27 @@ interface JsonRpcResponse {
   error?: { code?: string; message?: string };
 }
 
+interface LocalToolClientOptions {
+  cwd?: string;
+  requestTimeoutMs?: number;
+}
+
+interface PendingRequest {
+  resolve: (response: JsonRpcResponse) => void;
+  timer?: NodeJS.Timeout;
+}
+
 export class LocalToolClient {
   private readonly child: ChildProcess;
+  private readonly requestTimeoutMs: number;
   private nextId = 1;
-  private readonly pending = new Map<
-    string,
-    (response: JsonRpcResponse) => void
-  >();
+  private readonly pending = new Map<string, PendingRequest>();
   private buffer = '';
+  private closed = false;
 
-  constructor(command: string, args: string[], cwd = process.cwd()) {
+  constructor(command: string, args: string[], options: LocalToolClientOptions = {}) {
+    const { cwd = process.cwd(), requestTimeoutMs = 15_000 } = options;
+    this.requestTimeoutMs = requestTimeoutMs;
     this.child = spawn(command, args, {
       cwd,
       stdio: 'pipe',
@@ -42,7 +53,11 @@ export class LocalToolClient {
           try {
             const response = JSON.parse(line) as JsonRpcResponse;
             if (response.id && this.pending.has(String(response.id))) {
-              this.pending.get(String(response.id))?.(response);
+              const pending = this.pending.get(String(response.id));
+              if (pending?.timer) {
+                clearTimeout(pending.timer);
+              }
+              pending?.resolve(response);
               this.pending.delete(String(response.id));
             }
           } catch {
@@ -54,14 +69,15 @@ export class LocalToolClient {
     });
 
     this.child.on('error', (err) => {
-      for (const [id, resolve] of this.pending) {
-        resolve({
-          jsonrpc: '2.0',
-          id,
-          error: { code: 'spawn_error', message: err.message },
-        });
+      this.rejectAllPending('spawn_error', err.message);
+    });
+
+    this.child.on('exit', (code, signal) => {
+      if (this.closed) {
+        return;
       }
-      this.pending.clear();
+      const reason = signal ? `child exited via signal ${signal}` : `child exited with code ${code ?? 'unknown'}`;
+      this.rejectAllPending('child_exit', reason);
     });
   }
 
@@ -74,11 +90,23 @@ export class LocalToolClient {
       params: params ?? undefined,
     };
 
+    if (this.closed || !this.child.stdin || this.child.stdin.destroyed) {
+      throw new Error(`RPC client is closed; cannot call ${method}`);
+    }
+
     const responsePromise = new Promise<JsonRpcResponse>((resolve) => {
-      this.pending.set(id, resolve);
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        resolve({
+          jsonrpc: '2.0',
+          id,
+          error: { code: 'timeout', message: `RPC call timed out: ${method}` },
+        });
+      }, this.requestTimeoutMs);
+      this.pending.set(id, { resolve, timer });
     });
 
-    this.child.stdin?.write(`${JSON.stringify(request)}\n`);
+    this.child.stdin.write(`${JSON.stringify(request)}\n`);
     const response = await responsePromise;
     if (response.error) {
       throw new Error(response.error.message ?? `RPC error from ${method}`);
@@ -87,6 +115,24 @@ export class LocalToolClient {
   }
 
   async close(): Promise<void> {
-    this.child.kill();
+    this.closed = true;
+    this.rejectAllPending('client_closed', 'RPC client closed');
+    if (!this.child.killed) {
+      this.child.kill();
+    }
+  }
+
+  private rejectAllPending(code: string, message: string): void {
+    for (const [id, pending] of this.pending) {
+      if (pending.timer) {
+        clearTimeout(pending.timer);
+      }
+      pending.resolve({
+        jsonrpc: '2.0',
+        id,
+        error: { code, message },
+      });
+    }
+    this.pending.clear();
   }
 }

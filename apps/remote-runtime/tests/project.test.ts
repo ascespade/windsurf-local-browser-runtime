@@ -1,10 +1,12 @@
 import { test, describe, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdir, writeFile, rm } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { once } from 'node:events';
+import { mkdir, writeFile, rm, mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtemp } from 'node:fs/promises';
 import { detectProject } from '../src/project.ts';
+import { RemoteRuntime } from '../src/runtime.ts';
 
 const tempDirs: string[] = [];
 
@@ -19,9 +21,7 @@ afterEach(async () => {
   tempDirs.length = 0;
 });
 
-async function createTestProject(
-  files: Record<string, string>,
-): Promise<string> {
+async function createTestProject(files: Record<string, string>): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'remote-test-'));
   tempDirs.push(dir);
   for (const [name, content] of Object.entries(files)) {
@@ -91,9 +91,7 @@ describe('Remote Runtime - Project Detection', () => {
   });
 
   test('should detect Laravel project from artisan file', async () => {
-    const dir = await createTestProject({
-      artisan: '#!/usr/bin/env php',
-    });
+    const dir = await createTestProject({ artisan: '#!/usr/bin/env php' });
 
     const plan = await detectProject(dir);
     assert.equal(plan.framework, 'laravel');
@@ -111,18 +109,20 @@ describe('Remote Runtime - Project Detection', () => {
 
     const plan = await detectProject(dir);
     assert.equal(plan.framework, 'unknown');
+    assert.equal(plan.supported, false);
+    assert.ok(plan.reason?.includes('unknown'));
   });
 
   test('should return unknown for directory with no package.json', async () => {
-    const dir = await createTestProject({
-      'README.md': '# Empty project',
-    });
+    const dir = await createTestProject({ 'README.md': '# Empty project' });
 
     const plan = await detectProject(dir);
     assert.equal(plan.framework, 'unknown');
     assert.equal(plan.packageManager, 'unknown');
     assert.equal(plan.buildCommand, undefined);
     assert.equal(plan.testCommand, undefined);
+    assert.equal(plan.supported, false);
+    assert.equal(plan.startCommand, '');
   });
 
   test('should detect pnpm package manager', async () => {
@@ -169,10 +169,7 @@ describe('Remote Runtime - Project Detection', () => {
 
   test('should default to npm when no packageManager field', async () => {
     const dir = await createTestProject({
-      'package.json': JSON.stringify({
-        name: 'npm-app',
-        dependencies: {},
-      }),
+      'package.json': JSON.stringify({ name: 'npm-app', dependencies: {} }),
     });
 
     const plan = await detectProject(dir);
@@ -206,16 +203,15 @@ describe('Remote Runtime - Project Detection', () => {
     assert.equal(plan.startCommand, 'nodemon');
   });
 
-  test('should fall back to npm run dev when no scripts', async () => {
+  test('should mark project unsupported when no scripts', async () => {
     const dir = await createTestProject({
-      'package.json': JSON.stringify({
-        name: 'no-scripts',
-        dependencies: {},
-      }),
+      'package.json': JSON.stringify({ name: 'no-scripts', dependencies: {} }),
     });
 
     const plan = await detectProject(dir);
-    assert.equal(plan.startCommand, 'npm run dev');
+    assert.equal(plan.startCommand, '');
+    assert.equal(plan.supported, false);
+    assert.ok(plan.reason?.includes('no dev/start script'));
   });
 
   test('should detect devDependencies framework', async () => {
@@ -228,5 +224,67 @@ describe('Remote Runtime - Project Detection', () => {
 
     const plan = await detectProject(dir);
     assert.equal(plan.framework, 'vite');
+    assert.equal(plan.supported, false);
+  });
+});
+
+describe('Remote Runtime - Lifecycle', () => {
+  test('should reject unsupported projects on start', async () => {
+    const dir = await createTestProject({
+      'package.json': JSON.stringify({
+        name: 'unknown-supported-false',
+        scripts: { dev: 'node server.js' },
+        dependencies: { lodash: '4.17.0' },
+      }),
+    });
+
+    const runtimeRoot = await mkdtemp(join(tmpdir(), 'remote-state-'));
+    tempDirs.push(runtimeRoot);
+
+    const runtime = new RemoteRuntime(runtimeRoot);
+    await runtime.init();
+
+    await assert.rejects(
+      () => runtime.start({ cwd: dir, strategy: 'auto' }),
+      (error: Error) => {
+        assert.ok(error.message.includes('unsupported project'));
+        return true;
+      },
+    );
+
+    assert.deepEqual(runtime.list(), []);
+  });
+
+  test('health should report success against reachable url', async () => {
+    const server = createServer((_, response) => {
+      response.writeHead(200, { 'content-type': 'text/plain' });
+      response.end('ok-from-test-server');
+    });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const address = server.address();
+    assert.ok(address && typeof address === 'object');
+
+    const runtimeRoot = await mkdtemp(join(tmpdir(), 'remote-state-'));
+    tempDirs.push(runtimeRoot);
+    const runtime = new RemoteRuntime(runtimeRoot);
+    await runtime.init();
+
+    try {
+      const result = await runtime.health({
+        url: `http://127.0.0.1:${address.port}`,
+        timeoutMs: 1_000,
+      });
+      assert.equal(result.ok, true);
+      assert.equal(result.status, 200);
+      assert.ok(result.bodyPreview?.includes('ok-from-test-server'));
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    }
   });
 });

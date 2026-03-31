@@ -1,99 +1,121 @@
 # CURRENT TRUTH
 
-## Repository State: 2026-03-31 (Deep Audit)
+## Repository State: 2026-03-31 (Deep Hardening Pass + Final Local Strengthening)
 
 ### Validation Status
 
-| Check         | Status  | Details                                                              |
-| ------------- | ------- | -------------------------------------------------------------------- |
-| **Build**     | ✅ PASS | All 13 packages compile                                              |
-| **Typecheck** | ✅ PASS | All 13 packages pass strict TS (no @ts-nocheck in production code)   |
-| **Lint**      | ✅ PASS | All packages pass (1 warning: unused eslint-disable in ui-extension) |
-| **Test**      | ✅ PASS | 13/13 packages have real tests, 197 total, 0 failures                |
-| **Guard**     | ✅ PASS | Semantic validation (architecture, test infra, work graph)           |
+| Check         | Status        | Details                                                                 |
+| ------------- | ------------- | ----------------------------------------------------------------------- |
+| **Build**     | ⚠️ Unverified | Claimed by prior audit, not re-proven inside this constrained session   |
+| **Typecheck** | ⚠️ Unverified | Prior reports say green; not re-run end-to-end here                     |
+| **Lint**      | ⚠️ Unverified | Prior reports say green; not re-run end-to-end here                     |
+| **Test**      | ⚠️ Partial    | Test files exist across all surfaces; semantic quality re-audited here  |
+| **Guard**     | ✅ PASS       | guard:verify, guard:status, guard:next execute and validate real inputs |
 
-### Architecture
+### What Is Proven In This Environment
 
-The repository implements a 4-layer monorepo:
+1. **Governance files exist and are non-empty**
+   - `AGENTS.md`
+   - `docs/locked/OPERATING_CONTRACT.md`
+   - `docs/locked/HANDOFF_PROTOCOL.md`
+   - `docs/locked/ACCEPTANCE_GATES.json`
+   - `docs/locked/WORK_GRAPH.json`
 
-1. **browser-mcp** - Local browser runtime with Chrome launcher, CDP client, JSON-RPC stdio server
-2. **remote-runtime** - Remote project detection, process management, health checks
-3. **orchestrator** - Launch-and-probe workflow coordinator with JSON-RPC client
-4. **ui-extension** - VS Code extension with command definitions and activation lifecycle
+2. **Guard system executes and validates semantics, not only file presence**
+   - `guard-verify` now checks:
+     - locked/truth file presence and JSON validity
+     - architecture surface presence
+     - circular workspace dependency detection
+     - work-graph cycle/dependency integrity
+     - computed `next_allowed` vs configured `next_allowed`
+     - empty/weak test-surface rejection
+   - `guard-next` computes next work from graph state instead of trusting `next_allowed` blindly.
 
-Supporting packages: protocol, shared-types, retry-policy, selector-engine, session-store, target-resolver, url-bridge, action-engine, audit-core.
+3. **Browser runtime is stricter than baseline**
+   - CDP client enables `Page`, `Runtime`, and `Network` domains on attach.
+   - Console/network event parsing no longer relies on `any`.
+   - Browser actions (`click`, `type`, `scroll`, `hover`) now fail explicitly when the browser-side action result is not `ok:true`.
 
-### Test Infrastructure
+4. **Remote runtime no longer uses fake runnable fallbacks**
+   - Unknown or unsupported projects now return `supported: false` with a reason.
+   - `remote-runtime.start()` rejects unsupported projects instead of spawning `echo` placeholder commands.
+   - Child process exit transitions are written back into runtime state.
 
-| Package         | Tests | Type       | Test Runner                                                |
-| --------------- | ----- | ---------- | ---------------------------------------------------------- |
-| protocol        | 23    | Structural | pnpm build && node --test dist/\*_/_.test.js               |
-| target-resolver | 19    | Behavioral | pnpm build && node --test dist/\*_/_.test.js               |
-| retry-policy    | 18    | Behavioral | pnpm build && node --test dist/\*_/_.test.js               |
-| selector-engine | 13    | Behavioral | pnpm build && node --test dist/\*_/_.test.js               |
-| session-store   | 20    | Behavioral | pnpm build && node --test dist/\*_/_.test.js               |
-| action-engine   | 11    | Behavioral | pnpm build && node --test dist/\*_/_.test.js               |
-| url-bridge      | 22    | Behavioral | pnpm build && node --test dist/\*_/_.test.js               |
-| shared-types    | 9     | Structural | pnpm build && node --test dist/\*_/_.test.js               |
-| audit-core      | 13    | Behavioral | pnpm build && node --test dist/\*_/_.test.js               |
-| browser-mcp     | 18    | Behavioral | node --test --experimental-strip-types tests/\*_/_.test.ts |
-| remote-runtime  | 15    | Behavioral | node --test --experimental-strip-types tests/\*_/_.test.ts |
-| orchestrator    | 9     | Behavioral | pnpm build && node --test --experimental-strip-types       |
-| ui-extension    | 7     | Structural | node --test --experimental-strip-types tests/\*_/_.test.ts |
+5. **Target resolution is more defensive**
+   - Invalid/null/empty URLs are ignored instead of causing resolver crashes.
 
-**Total: 197 tests across 13 packages, 0 failures.**
+6. **Orchestrator RPC client is stricter**
+   - Pending JSON-RPC calls now fail explicitly on timeout, child exit, or client close.
+   - Orchestrator tests now exercise timeout and unexpected-exit handling instead of only happy-path RPC echoes.
 
-### Governance System Status
+7. **Retry policy rejects invalid retry budgets explicitly**
+   - `withRetry()` now throws on zero/negative retry budgets instead of silently falling through to an unhelpful undefined-error path.
 
-| Component                 | Status    | Details                                                   |
-| ------------------------- | --------- | --------------------------------------------------------- |
-| **AGENTS.md**             | ✅ PASS   | Agent roles and handoff rules defined                     |
-| **OPERATING_CONTRACT.md** | ✅ PASS   | Immutable rules and procedures documented                 |
-| **HANDOFF_PROTOCOL.md**   | ✅ PASS   | Agent handoff procedures defined                          |
-| **ACCEPTANCE_GATES.json** | ✅ PASS   | All 4 validation gates present with dependencies          |
-| **WORK_GRAPH.json**       | ✅ PASS   | Status fields on completed nodes, valid dependency chains |
-| **guard:verify**          | ✅ STRONG | Validates architecture, test infra, work graph semantics  |
-| **guard:status**          | ✅ STRONG | Shows real test status per package                        |
-| **guard:next**            | ✅ STRONG | Respects dependency chains and blocked nodes              |
+8. **UI extension command metadata is stronger than baseline scaffold**
+   - Command definitions now include entrypoint + success metadata and resolve through a shared spec lookup instead of duplicated literals.
 
-### Deep Audit Remediation (This Session)
+9. **Production code no longer contains broad `any` or `@ts-nocheck` patterns**
+   - Remaining `any` usages were removed from production paths inspected in this session.
 
-1. **Replaced fake session-store/basic.test.ts** (was testing Node.js builtins, not the module)
-   - Now: 12 real tests for InMemorySessionStore (upsert, get, delete, list, load, patch)
-   - Root cause: Test file existed but exercised zero project code
+### Implemented But Not Fully Verifiable Here
 
-2. **Fixed test commands for remote-runtime and ui-extension** (were missing path argument)
-   - `node --test` without path defaults to `test/` dir, but tests are in `tests/`
-   - Now: explicit `tests/**/*.test.ts` path in both package.json files
+1. **Full build/typecheck/lint/test pass**
+   - Previous audit claims these passed.
+   - They were not fully re-executed in this constrained environment during this pass.
 
-3. **Removed @ts-nocheck from orchestrator/client.ts**
-   - Root cause: `import { spawn, ChildProcess }` violated `verbatimModuleSyntax`
-   - Fixed: proper `import type { ChildProcess }`, try/catch on JSON.parse, child error event handler
+2. **Visible Chrome launch and CDP session control**
+   - Code exists.
+   - Real Chrome/Chromium/Edge runtime was not available for proof here.
 
-4. **Enhanced orchestrator tests from trivial to behavioral**
-   - Was: 4 export-existence checks
-   - Now: 9 tests including JSON-RPC echo server communication, error handling, concurrent calls
+3. **Remote project lifecycle against a real target workspace**
+   - Code exists.
+   - No real SSH target/project runtime was exercised here.
 
-5. **Removed console.error debug statement** from session-store/basic.test.ts
+4. **Windsurf / VS Code extension activation lifecycle**
+   - Extension code exists and command metadata/launch argument construction are more centralized.
+   - Actual host activation was not proved here.
 
-### Source Code Quality (Verified)
+### Partially Implemented / Still Weak
 
-- No `@ts-nocheck` in production code (removed from orchestrator/client.ts)
-- No `console.log` or debug statements in production code
-- No TODO comments where real code should exist
-- No eval() or dynamic code execution
-- Proper error handling in all runtime paths
-- Isolated Chrome profiles via --user-data-dir
+1. **UI extension depth**
+   - Stronger than the original thin scaffold because command metadata and launch wiring are centralized.
+   - Still command-centric overall.
+   - No panels, evidence viewer, session explorer, or richer in-host UI.
 
-### Known Limitations
+2. **Guard semantics for test quality**
+   - Stronger than before, but still heuristic.
+   - It classifies weakness by file content patterns, not by executing a full semantic test review engine.
 
-- **protocol and shared-types tests are structural** — modules export only TypeScript types, no runtime logic to test behaviorally
-- **ui-extension tests are structural** — module depends on vscode which is unavailable in test
-- **orchestrator tests use echo server** — real JSON-RPC communication tested but not full launch-and-probe flow (requires Chrome + remote runtime)
+3. **Browser runtime hardening depth**
+   - Better action assertions exist now.
+   - Richer recovery logic, iframe routing, shadow DOM handling, uploads, and multi-target robustness are still not proven complete.
 
-### External Runtime Requirements (Not Verifiable Here)
+4. **Remote runtime sophistication**
+   - Safer unsupported-project handling now exists.
+   - Framework detection and process supervision remain baseline rather than production-hard.
 
-- Chrome/Chromium/Edge installation
-- Remote SSH workspace connection
-- VS Code extension host
-- Actual project detection and orchestration
+### Removed / Rejected As Untrustworthy
+
+1. **Fake runnable unknown-project fallback**
+   - Removed from remote project detection/start path.
+
+2. **Blind trust in `WORK_GRAPH.json.next_allowed`**
+   - Replaced by computed next-allowed logic in guards.
+
+3. **Unsafe target resolution assumptions**
+   - Invalid target URLs no longer remain trusted inputs.
+
+### External Runtime Requirements
+
+These remain outside proof in this environment:
+- Real Chrome/Chromium/Edge installation
+- Real Remote SSH workspace
+- Real Windsurf / VS Code extension host
+- Real end-to-end launch-and-probe workflow
+
+### Latest Local Strengthening Delta
+
+- Removed stray empty file `testwrite` because it added no trusted value.
+- Strengthened orchestrator tests to cover timeout and child-exit failure modes.
+- Expanded remote-runtime tests to verify unsupported-project rejection and live health-check behavior against a real ephemeral HTTP server.
+- Tightened retry-policy behavior and corresponding tests for invalid retry budgets.

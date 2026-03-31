@@ -2,153 +2,57 @@
 
 ## Executive Verdict
 
-**CONDITIONAL PASS**
+**CONDITIONAL PASS (0.80 / 1.00)**
 
----
+The repository is materially stronger than the earlier baseline and no longer relies on several previously weak or misleading paths. However, it is still not a fully proven end-state product. The core reasons are external-runtime proof remains absent here, the UI extension is still thin, and several hardening areas remain baseline rather than release-grade.
 
-## 1. Executive Verdict
+## Proven In This Environment
 
-The repository has been through two rounds of deep audit and remediation. All 13 packages compile, typecheck, lint, and have real test coverage with 197 tests and 0 failures. No fake tests, no decorative governance, no `@ts-nocheck` in production code.
+- Locked governance files exist and are non-empty.
+- Guard commands execute successfully.
+- Guard verification now checks graph semantics, circular workspace dependencies, and rejects empty/weak test surfaces.
+- Browser runtime action paths fail explicitly on negative browser-side results.
+- CDP attachment enables core domains and parses console/network events without `any`.
+- Remote runtime refuses unsupported projects instead of spawning placeholder commands.
+- Target resolver no longer trusts null/empty URLs.
+- Orchestrator RPC client now rejects timeout/child-exit/client-close paths explicitly instead of hanging weakly.
+- Retry policy now rejects invalid retry budgets explicitly.
+- UI extension command definitions are centralized into shared specs instead of duplicated literals.
 
-**Classification**: IMPLEMENTED AND VERIFIED WITH EXTERNAL RUNTIME BLOCKERS
+## Implemented But Not Fully Verifiable Here
 
----
+- Full workspace build/typecheck/lint/test success.
+- Real browser launch and CDP round-trip against an installed browser.
+- Real remote workspace process lifecycle over SSH.
+- Real Windsurf/VS Code activation and command execution in host.
+- Full launch-and-probe orchestration against a live app.
 
-## 2. Implemented and Verified
+## Partially Implemented / Weak
 
-- **Governance Lock**: All 5 locked files present and semantically validated
-- **Guard Commands**: guard:verify (architecture + test infra + work graph), guard:status (real per-package test counts), guard:next (dependency enforcement)
-- **Monorepo Structure**: pnpm workspaces with 4 apps + 9 packages
-- **TypeScript Compilation**: All 13 packages compile without errors, no @ts-nocheck in production code
-- **Type Checking**: All 13 packages pass strict TypeScript validation
-- **Linting**: All packages pass (1 warning: unused eslint-disable in vscode-shim.d.ts)
-- **Test Coverage**: 13/13 packages, 197 tests, 0 failures, no fake tests
-- **Browser Runtime**: Console/network event capture, evidence sinks, scroll/hover actions
-- **Chrome Integration**: Isolated profiles, CDP client, WebSocket communication
-- **Action Engine**: 5 action types with selector ranking and JS resolver generation
-- **Session Store**: In-memory + file-backed persistence, full CRUD with 20 tests
-- **Orchestrator**: JSON-RPC client with echo-server behavioral tests
+- `ui-extension` remains command-launch oriented rather than a mature in-host UX, even though its command metadata and launch wiring are now more centralized.
+- Guard test-quality classification is heuristic, not a full semantic proof engine.
+- Browser runtime still lacks proven iframe/shadow/upload/multi-target hardening.
+- Remote runtime detection and process supervision remain baseline.
 
----
+## Removed / Corrected During This Pass
 
-## 3. Defects Found and Fixed
+1. Strengthened guard system so it computes allowed work from graph state.
+2. Removed fake runnable fallback behavior for unsupported projects.
+3. Added explicit action-result verification in browser runtime.
+4. Removed weak/null target assumptions in target resolution.
+5. Removed remaining production-path `any` usages found during this pass.
 
-### Round 1 (Initial Audit)
+## Required Remaining Work
 
-| #   | Severity | Defect                                                 | Fix                                                              |
-| --- | -------- | ------------------------------------------------------ | ---------------------------------------------------------------- |
-| 1   | CRITICAL | 7 packages had zero tests producing fake 0/0 passes    | Added 105 tests across 7 packages                                |
-| 2   | HIGH     | Guard scripts only checked file presence               | Added semantic validation (architecture, test infra, work graph) |
-| 3   | MEDIUM   | Work graph had stale current_work and no status fields | Added status fields, advanced current_work                       |
+1. Prove `pnpm build`, `pnpm typecheck`, `pnpm lint`, and `pnpm test` in a dependency-complete environment.
+2. Harden browser runtime further: iframe/shadow DOM/recovery/upload/multi-target handling.
+3. Deepen remote runtime supervision and framework intelligence.
+4. Expand `ui-extension` beyond command registration into real session/evidence UI.
+5. Re-run final audit in a real Windsurf + local browser + remote workspace environment.
+6. Prove the strengthened orchestrator/runtime tests and full workspace build in a dependency-complete environment.
 
-### Round 2 (Deep Audit)
+## Confidence
 
-| #   | Severity | Defect                                                              | Fix                                                    |
-| --- | -------- | ------------------------------------------------------------------- | ------------------------------------------------------ |
-| 4   | CRITICAL | session-store/basic.test.ts tested Node.js builtins, not the module | Replaced with 12 InMemorySessionStore behavioral tests |
-| 5   | CRITICAL | remote-runtime and ui-extension test commands missing path          | Added explicit `tests/**/*.test.ts` path               |
-| 6   | HIGH     | orchestrator/client.ts had `@ts-nocheck` disabling type safety      | Removed, fixed imports, added error handling           |
-| 7   | HIGH     | orchestrator tests were 4 trivial export-existence checks           | Enhanced to 9 behavioral tests with echo server        |
-| 8   | LOW      | session-store/basic.test.ts had console.error debug statement       | Removed (file replaced entirely)                       |
+**0.80**
 
----
-
-## 4. Validation Results
-
-| Command             | Status  | Details                                               |
-| ------------------- | ------- | ----------------------------------------------------- |
-| `pnpm build`        | ✅ PASS | All 13 packages compile                               |
-| `pnpm typecheck`    | ✅ PASS | All 13 packages pass strict TypeScript                |
-| `pnpm lint`         | ✅ PASS | All packages pass (1 warning)                         |
-| `pnpm test`         | ✅ PASS | 13/13 packages, 197 tests, 0 failures                 |
-| `pnpm guard:verify` | ✅ PASS | Architecture, test infra, work graph, gates validated |
-| `pnpm guard:status` | ✅ PASS | Real test status displayed                            |
-| `pnpm guard:next`   | ✅ PASS | Work graph constraints enforced                       |
-
----
-
-## 5. Test Quality Audit
-
-### Tier 1 — Genuine Behavioral Tests (9 files, ~146 test cases)
-
-These test actual project logic with meaningful assertions:
-
-- target-resolver (19), retry-policy (18), selector-engine (13), action-engine (11)
-- audit-core (13), url-bridge (22), remote-runtime (15), browser-mcp (18)
-- session-store (20: 8 integration + 12 InMemorySessionStore)
-
-### Tier 2 — Structural (4 files, ~48 test cases)
-
-Appropriate for their module nature:
-
-- protocol (23 — types only, structural validation is correct)
-- shared-types (9 — types only)
-- ui-extension (7 — static command definitions)
-- orchestrator (9 — 4 structural + 5 behavioral via echo server)
-
-### No Fake Tests Remaining
-
-- No test file tests only Node.js builtins
-- No test command produces 0/0 passes
-- No `@ts-nocheck` in production code
-- No tautological assertions in behavioral tests
-
----
-
-## 6. Security / Robustness
-
-### Proven Secure
-
-- **Isolated Chrome Profiles**: Uses `--user-data-dir` with UUID-bounded temp directories
-- **No Default Profile**: Never uses system default Chrome profile
-- **Process Isolation**: Proper child process spawning with PID tracking
-- **Input Validation**: All JSON-RPC interfaces validate parameters before use
-- **No eval()**: No dynamic code execution in browser actions
-- **No Arbitrary Shell Access**: Browser tools cannot execute local commands
-- **Type Safety**: No @ts-nocheck in production code after remediation
-
----
-
-## 7. Remaining Known Issues (Non-Blocking)
-
-### Low Priority
-
-- **Orchestrator tests use echo server** — tests JSON-RPC protocol but not full launch-and-probe flow
-- **ui-extension tests are structural** — vscode dependency prevents behavioral testing
-
-### External Runtime Blockers (Cannot Resolve Here)
-
-- Chrome/Chromium/Edge installation required for browser-mcp runtime tests
-- VS Code extension host required for ui-extension behavioral tests
-- Remote SSH workspace required for remote-runtime process management tests
-
----
-
-## 8. Final Confidence Score
-
-**0.87/1.00**
-
-### Justification
-
-- **0.30** for genuine implementation (browser runtime, event capture, actions, session store, URL bridge, audit core, orchestrator client)
-- **0.15** for governance structure (semantic guards, work graph with status, acceptance gates)
-- **0.18** for test coverage (197 tests, 13/13 packages, behavioral where possible, no fake tests)
-- **0.10** for build/typecheck/lint quality (strict TypeScript, no errors, no @ts-nocheck)
-- **0.12** for architecture integrity (4-layer model, proper dependencies, no drift)
-- **-0.13** for external runtime blockers (Chrome, VS Code, SSH not available)
-
-**Critical Issues Resolved (Both Rounds)**:
-
-- ✅ Test infrastructure crisis: all packages have real tests
-- ✅ Fake test files eliminated: session-store/basic.test.ts replaced
-- ✅ Test command correctness: all 13 packages have explicit paths
-- ✅ Type safety: @ts-nocheck removed from production code
-- ✅ Guard validation: semantic validation (was file-presence only)
-
----
-
-## 9. Verdict
-
-**CONDITIONAL PASS**
-
-The repository meets all verifiable quality gates. All code compiles with strict TypeScript, passes linting, and has 197 real tests across 13 packages with 0 failures. No fake tests, no decorative governance, no type-safety bypasses. The only gaps are blocked by external runtime availability.
+This is not a “finished product” score. It is a score for a strong, more trustworthy implementation baseline with real hardening progress, but still incomplete runtime proof.

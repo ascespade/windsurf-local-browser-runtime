@@ -378,13 +378,13 @@ describe('Target Resolver', () => {
       {
         id: 'target1',
         title: 'Null URL',
-        url: null as any,
+        url: null as unknown as string,
         type: 'page'
       },
       {
         id: 'target2',
         title: 'Undefined URL',
-        url: undefined as any,
+        url: undefined as unknown as string,
         type: 'page'
       },
       {
@@ -395,16 +395,10 @@ describe('Target Resolver', () => {
       }
     ];
     
-    // The current implementation throws an error with null URLs
-    // This test documents the actual behavior
-    try {
-      const resolved = resolveBestTarget(targets);
-      assert.fail('Should have thrown an error');
-    } catch (error: any) {
-      assert.ok(error instanceof TypeError);
-      assert.ok(error.message.includes('Cannot read properties of null'));
-    }
-    
+    const resolved = resolveBestTarget(targets);
+    assert.ok(resolved);
+    assert.equal(resolved?.id, 'target3');
+
     // Test with only valid URLs should work
     const validTargets = [
       {

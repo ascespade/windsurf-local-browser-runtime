@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { planClick, planType, planWait, planScroll, planHover } from '@wlbr/action-engine';
 import { createEvidenceBundle, writeEvidencePointer } from '@wlbr/audit-core';
 import type {
+  BrowserActionTarget,
   BrowserAttachInput,
   BrowserClickInput,
   BrowserCloseSessionInput,
@@ -155,18 +156,16 @@ export class BrowserRuntime {
     const plan = planClick(input);
     const client = await this.attachClient(session);
     await this.waitUntilResolved(client, plan.jsResolver, plan.timeoutMs);
-    await client.send('Runtime.evaluate', {
-      expression: `
-        (() => {
-          const node = ${plan.jsResolver};
-          if (!node) return { ok: false, reason: 'element_not_found' };
-          if (node instanceof HTMLElement) node.click();
-          return { ok: true };
-        })()
-      `,
-      awaitPromise: true,
-      returnByValue: true,
-    });
+    await this.assertActionResult(
+      client,
+      `(() => {
+        const node = ${plan.jsResolver};
+        if (!node) return { ok: false, reason: 'element_not_found' };
+        if (node instanceof HTMLElement) node.click();
+        return { ok: true };
+      })()`,
+      'click',
+    );
     return { ok: true, selector: plan.selector };
   }
 
@@ -176,24 +175,25 @@ export class BrowserRuntime {
     const client = await this.attachClient(session);
     await this.waitUntilResolved(client, plan.jsResolver, plan.timeoutMs);
     const valueLiteral = JSON.stringify(plan.payload ?? '');
-    await client.send('Runtime.evaluate', {
-      expression: `
-        (() => {
-          const node = ${plan.jsResolver};
-          if (!node) return { ok: false, reason: 'element_not_found' };
-          if ('focus' in node) node.focus();
-          if (${JSON.stringify(input.clearFirst ?? true)} && 'value' in node) node.value = '';
-          if ('value' in node) {
-            node.value = ${valueLiteral};
-            node.dispatchEvent(new Event('input', { bubbles: true }));
-            node.dispatchEvent(new Event('change', { bubbles: true }));
+    await this.assertActionResult(
+      client,
+      `(() => {
+        const node = ${plan.jsResolver};
+        if (!node) return { ok: false, reason: 'element_not_found' };
+        if ('focus' in node && typeof node.focus === 'function') node.focus();
+        if (${JSON.stringify(input.clearFirst ?? true)} && 'value' in node) node.value = '';
+        if ('value' in node) {
+          node.value = ${valueLiteral};
+          node.dispatchEvent(new Event('input', { bubbles: true }));
+          node.dispatchEvent(new Event('change', { bubbles: true }));
+          if (String(node.value) !== ${valueLiteral}) {
+            return { ok: false, reason: 'value_not_applied' };
           }
-          return { ok: true };
-        })()
-      `,
-      awaitPromise: true,
-      returnByValue: true,
-    });
+        }
+        return { ok: true };
+      })()`,
+      'type',
+    );
     return { ok: true, selector: plan.selector };
   }
 
@@ -216,47 +216,43 @@ export class BrowserRuntime {
     return result.result?.value;
   }
 
-  async scroll(input: { sessionId: string; target: any; direction?: 'up' | 'down' | 'left' | 'right'; amount?: number; timeoutMs?: number }): Promise<{ ok: true; selector: string }> {
+  async scroll(input: { sessionId: string; target: BrowserActionTarget; direction?: 'up' | 'down' | 'left' | 'right'; amount?: number; timeoutMs?: number }): Promise<{ ok: true; selector: string }> {
     const session = this.assertSession(input.sessionId);
     const plan = planScroll(input.target, input.direction, input.amount);
     const client = await this.attachClient(session);
     await this.waitUntilResolved(client, plan.jsResolver, plan.timeoutMs);
     const { direction, amount } = JSON.parse(plan.payload || '{}');
-    await client.send('Runtime.evaluate', {
-      expression: `
-        (() => {
-          const node = ${plan.jsResolver};
-          if (!node) return { ok: false, reason: 'element_not_found' };
-          const deltaX = ${direction === 'left' ? -amount : direction === 'right' ? amount : 0};
-          const deltaY = ${direction === 'up' ? -amount : direction === 'down' ? amount : 0};
-          node.scrollBy({ top: deltaY, left: deltaX, behavior: 'smooth' });
-          return { ok: true };
-        })()
-      `,
-      awaitPromise: true,
-      returnByValue: true,
-    });
+    await this.assertActionResult(
+      client,
+      `(() => {
+        const node = ${plan.jsResolver};
+        if (!node || typeof node.scrollBy !== 'function') return { ok: false, reason: 'element_not_scrollable' };
+        const deltaX = ${direction === 'left' ? -amount : direction === 'right' ? amount : 0};
+        const deltaY = ${direction === 'up' ? -amount : direction === 'down' ? amount : 0};
+        node.scrollBy({ top: deltaY, left: deltaX, behavior: 'instant' });
+        return { ok: true };
+      })()`,
+      'scroll',
+    );
     return { ok: true, selector: plan.selector };
   }
 
-  async hover(input: { sessionId: string; target: any; timeoutMs?: number }): Promise<{ ok: true; selector: string }> {
+  async hover(input: { sessionId: string; target: BrowserActionTarget; timeoutMs?: number }): Promise<{ ok: true; selector: string }> {
     const session = this.assertSession(input.sessionId);
     const plan = planHover(input.target);
     const client = await this.attachClient(session);
     await this.waitUntilResolved(client, plan.jsResolver, plan.timeoutMs);
-    await client.send('Runtime.evaluate', {
-      expression: `
-        (() => {
-          const node = ${plan.jsResolver};
-          if (!node) return { ok: false, reason: 'element_not_found' };
-          const event = new MouseEvent('mouseover', { bubbles: true, cancelable: true });
-          node.dispatchEvent(event);
-          return { ok: true };
-        })()
-      `,
-      awaitPromise: true,
-      returnByValue: true,
-    });
+    await this.assertActionResult(
+      client,
+      `(() => {
+        const node = ${plan.jsResolver};
+        if (!node || typeof node.dispatchEvent !== 'function') return { ok: false, reason: 'element_not_found' };
+        const event = new MouseEvent('mouseover', { bubbles: true, cancelable: true });
+        node.dispatchEvent(event);
+        return { ok: true };
+      })()`,
+      'hover',
+    );
     return { ok: true, selector: plan.selector };
   }
 
@@ -420,6 +416,23 @@ export class BrowserRuntime {
     });
 
     return client;
+  }
+
+
+  private async assertActionResult(
+    client: Awaited<ReturnType<typeof attachToTarget>>,
+    expression: string,
+    actionName: string,
+  ): Promise<void> {
+    const result = await client.send<{ result?: { value?: { ok?: boolean; reason?: string } } }>('Runtime.evaluate', {
+      expression,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const payload = result.result?.value;
+    if (!payload?.ok) {
+      throw new Error(`Browser action ${actionName} failed: ${payload?.reason ?? 'unknown_reason'}`);
+    }
   }
 
   private async waitUntilResolved(

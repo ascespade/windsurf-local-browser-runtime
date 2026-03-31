@@ -22,6 +22,10 @@ export async function withRetry<T>(
   maxAttempts: number,
   operation: (attempt: number) => Promise<T>,
 ): Promise<T> {
+  if (!Number.isInteger(maxAttempts) || maxAttempts <= 0) {
+    throw new Error(`maxAttempts must be a positive integer; received ${maxAttempts}`);
+  }
+
   let lastError: unknown;
   for (let currentAttempt = 1; currentAttempt <= maxAttempts; currentAttempt += 1) {
     try {

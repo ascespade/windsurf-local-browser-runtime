@@ -113,7 +113,7 @@ describe('Retry Policy', () => {
     try {
       await withRetry(3, alwaysFailingOperation);
       assert.fail('Should have thrown error');
-    } catch (error: any) {
+    } catch (error: unknown) {
       assert.equal(error.message, 'Always fails on attempt 3');
       assert.equal(attemptCount, 3); // Should have tried all attempts
     }
@@ -149,7 +149,7 @@ describe('Retry Policy', () => {
     try {
       await withRetry(2, operationThrowingString);
       assert.fail('Should have thrown error');
-    } catch (error: any) {
+    } catch (error: unknown) {
       assert.equal(error.message, 'String error'); // Should be wrapped in Error
       assert.ok(error instanceof Error);
       assert.equal(attemptCount, 2);
@@ -170,48 +170,35 @@ describe('Retry Policy', () => {
     try {
       await withRetry(2, failingOperation);
       assert.fail('Should have thrown error');
-    } catch (error: any) {
+    } catch (error: unknown) {
       assert.equal(error, customError); // Should be the same error object
       assert.equal(error.name, 'CustomError');
       assert.equal(error.code, 'CUSTOM_CODE');
     }
   });
 
-  test('should handle zero max attempts', async () => {
+  test('should reject zero max attempts explicitly', async () => {
     const { withRetry } = await import('../src/index.js');
-    
-    const operation = async (attempt: number) => {
-      throw new Error(`Failed on attempt ${attempt}`);
-    };
-    
-    try {
-      await withRetry(0, operation);
-      assert.fail('Should have thrown error');
-    } catch (error: any) {
-      assert.ok(error instanceof Error);
-      // With maxAttempts=0, the loop doesn't execute, so lastError is undefined
-      // But the implementation converts undefined to Error(String(undefined))
-      assert.equal(error.constructor.name, 'Error');
-      // The actual behavior is that no attempts are made
-    }
+
+    await assert.rejects(
+      () => withRetry(0, async () => 'nope'),
+      (error: Error) => {
+        assert.ok(error.message.includes('positive integer'));
+        return true;
+      },
+    );
   });
 
-  test('should handle negative max attempts', async () => {
+  test('should reject negative max attempts explicitly', async () => {
     const { withRetry } = await import('../src/index.js');
-    
-    const operation = async (attempt: number) => {
-      throw new Error(`Failed on attempt ${attempt}`);
-    };
-    
-    try {
-      await withRetry(-1, operation);
-      assert.fail('Should have thrown error');
-    } catch (error: any) {
-      assert.ok(error instanceof Error);
-      // With maxAttempts=-1, the loop doesn't execute, so lastError is undefined
-      assert.equal(error.constructor.name, 'Error');
-      // The actual behavior is that no attempts are made
-    }
+
+    await assert.rejects(
+      () => withRetry(-1, async () => 'nope'),
+      (error: Error) => {
+        assert.ok(error.message.includes('positive integer'));
+        return true;
+      },
+    );
   });
 
   test('should handle large max attempts', async () => {
@@ -373,7 +360,7 @@ describe('Retry Policy', () => {
     try {
       await withRetry(2, failingVaryingOperation);
       assert.fail('Should have thrown error');
-    } catch (error: any) {
+    } catch (error: unknown) {
       assert.ok(error instanceof Error);
       // Should preserve the last error (attempt 2)
       assert.ok(error.message.includes('Second error'));

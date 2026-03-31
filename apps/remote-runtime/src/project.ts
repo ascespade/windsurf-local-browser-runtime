@@ -8,14 +8,38 @@ export interface ProjectPlan {
   startCommand: string;
   buildCommand: string | undefined;
   testCommand: string | undefined;
+  supported: boolean;
+  reason?: string;
 }
 
-async function fileExists(path: string): Promise<boolean> {
+async function fileExists(filePath: string): Promise<boolean> {
   try {
-    await access(path);
+    await access(filePath);
     return true;
   } catch {
     return false;
+  }
+}
+
+function detectPackageManager(packageManagerField: string | undefined): ProjectPlan['packageManager'] {
+  if (packageManagerField?.startsWith('pnpm')) return 'pnpm';
+  if (packageManagerField?.startsWith('yarn')) return 'yarn';
+  if (packageManagerField?.startsWith('bun')) return 'bun';
+  if (packageManagerField?.startsWith('npm')) return 'npm';
+  return 'npm';
+}
+
+function installCommandFor(manager: ProjectPlan['packageManager']): string {
+  switch (manager) {
+    case 'pnpm':
+      return 'pnpm install';
+    case 'yarn':
+      return 'yarn install';
+    case 'bun':
+      return 'bun install';
+    case 'npm':
+    default:
+      return 'npm install';
   }
 }
 
@@ -28,6 +52,7 @@ export async function detectProject(cwd: string): Promise<ProjectPlan> {
       startCommand: 'php artisan serve --host=0.0.0.0 --port=${PORT:-8000}',
       buildCommand: 'npm run build',
       testCommand: 'php artisan test',
+      supported: true,
     };
   }
 
@@ -36,10 +61,12 @@ export async function detectProject(cwd: string): Promise<ProjectPlan> {
     return {
       framework: 'unknown',
       packageManager: 'unknown',
-      installCommand: 'echo "No package.json found"',
-      startCommand: 'echo "No runnable project detected"',
+      installCommand: '',
+      startCommand: '',
       buildCommand: undefined,
       testCommand: undefined,
+      supported: false,
+      reason: 'No package.json found in target cwd',
     };
   }
 
@@ -55,14 +82,7 @@ export async function detectProject(cwd: string): Promise<ProjectPlan> {
     ...(pkg.devDependencies ?? {}),
   };
 
-  const packageManager = pkg.packageManager?.startsWith('pnpm')
-    ? 'pnpm'
-    : pkg.packageManager?.startsWith('yarn')
-      ? 'yarn'
-      : pkg.packageManager?.startsWith('bun')
-        ? 'bun'
-        : 'npm';
-
+  const packageManager = detectPackageManager(pkg.packageManager);
   const framework =
     'next' in dependencies
       ? 'nextjs'
@@ -72,22 +92,43 @@ export async function detectProject(cwd: string): Promise<ProjectPlan> {
           ? 'node'
           : 'unknown';
 
+  const startCommand = pkg.scripts?.['dev'] ?? pkg.scripts?.['start'] ?? '';
+  const buildCommand = pkg.scripts?.['build'];
+  const testCommand = pkg.scripts?.['test'];
+
+  if (!startCommand) {
+    return {
+      framework,
+      packageManager,
+      installCommand: installCommandFor(packageManager),
+      startCommand: '',
+      buildCommand,
+      testCommand,
+      supported: false,
+      reason: 'package.json is present but no dev/start script was found',
+    };
+  }
+
+  if (framework === 'unknown') {
+    return {
+      framework,
+      packageManager,
+      installCommand: installCommandFor(packageManager),
+      startCommand,
+      buildCommand,
+      testCommand,
+      supported: false,
+      reason: 'Project scripts exist, but framework classification is unknown and runtime policy refuses to guess',
+    };
+  }
+
   return {
     framework,
     packageManager,
-    installCommand:
-      packageManager === 'pnpm'
-        ? 'pnpm install'
-        : packageManager === 'yarn'
-          ? 'yarn install'
-          : packageManager === 'bun'
-            ? 'bun install'
-            : 'npm install',
-    startCommand:
-      pkg.scripts?.['dev'] ??
-      pkg.scripts?.['start'] ??
-      'npm run dev',
-    buildCommand: pkg.scripts?.['build'],
-    testCommand: pkg.scripts?.['test'],
+    installCommand: installCommandFor(packageManager),
+    startCommand,
+    buildCommand,
+    testCommand,
+    supported: true,
   };
 }

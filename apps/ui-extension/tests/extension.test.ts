@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { commands } from '../src/commands.ts';
+import { commands, findCommandSpec } from '../src/commands.ts';
 
 describe('UI Extension', () => {
   describe('Command Definitions', () => {
@@ -61,6 +61,8 @@ describe('UI Extension', () => {
           cmd.description.length > 0,
           'command description should not be empty',
         );
+        assert.ok(cmd.entrypoint.endsWith('.ts'), 'entrypoint should point to a TypeScript runtime');
+        assert.ok(cmd.successMessage.length > 0, 'success message should not be empty');
       }
     });
 
@@ -72,6 +74,15 @@ describe('UI Extension', () => {
         uniqueIds.size,
         'all command IDs should be unique',
       );
+    });
+
+
+
+    test('should resolve command specs by id', () => {
+      const spec = findCommandSpec('wlbr.orchestrator.launchAndProbe');
+      assert.ok(spec, 'command spec should resolve');
+      assert.equal(spec!.entrypoint, 'apps/orchestrator/src/index.ts');
+      assert.ok(spec!.successMessage.includes('launch-and-probe'));
     });
 
     test('commands should cover all three subsystems', () => {
