@@ -1,0 +1,89 @@
+{
+  "gates": {
+    "governance": {
+      "name": "Governance Lock",
+      "required_files": [
+        "AGENTS.md",
+        "docs/locked/OPERATING_CONTRACT.md",
+        "docs/locked/HANDOFF_PROTOCOL.md",
+        "docs/locked/ACCEPTANCE_GATES.json",
+        "docs/locked/WORK_GRAPH.json"
+      ],
+      "required_commands": [
+        "guard:verify",
+        "guard:status", 
+        "guard:next"
+      ],
+      "validation_rules": [
+        "all_locked_files_present",
+        "all_locked_files_valid",
+        "guard_commands_functional",
+        "package_json_has_guards"
+      ]
+    },
+    "build": {
+      "name": "Build System",
+      "required_commands": [
+        "build",
+        "typecheck",
+        "lint",
+        "test"
+      ],
+      "validation_rules": [
+        "all_packages_compile",
+        "no_type_errors",
+        "no_lint_errors",
+        "tests_defined_or_justified_empty"
+      ]
+    },
+    "architecture": {
+      "name": "4-Layer Architecture",
+      "required_apps": [
+        "browser-mcp",
+        "remote-runtime", 
+        "orchestrator",
+        "ui-extension"
+      ],
+      "required_packages": [
+        "protocol",
+        "shared-types",
+        "retry-policy",
+        "selector-engine",
+        "session-store",
+        "target-resolver",
+        "url-bridge",
+        "action-engine",
+        "audit-core"
+      ],
+      "validation_rules": [
+        "all_apps_have_index_ts",
+        "all_packages_have_index_ts",
+        "no_circular_dependencies",
+        "protocol_compliance"
+      ]
+    },
+    "truth": {
+      "name": "Truth Lock",
+      "required_files": [
+        "docs/reports/CURRENT_TRUTH.md"
+      ],
+      "validation_rules": [
+        "truth_file_exists",
+        "truth_file_current",
+        "truth_accurate",
+        "no_false_claims"
+      ]
+    }
+  },
+  "dependencies": {
+    "governance": [],
+    "build": ["governance"],
+    "architecture": ["governance"],
+    "truth": ["governance", "build", "architecture"]
+  },
+  "validation_levels": {
+    "critical": ["governance"],
+    "high": ["build", "architecture"],
+    "medium": ["truth"]
+  }
+}

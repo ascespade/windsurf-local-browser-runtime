@@ -1,0 +1,35 @@
+{
+  "name": "windsurf-local-browser-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write .",
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "clean": "turbo run clean && rimraf node_modules",
+    "guard:verify": "node scripts/guard-verify.js",
+    "guard:status": "node scripts/guard-status.js", 
+    "guard:next": "node scripts/guard-next.js"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.28.1",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.5.0",
+    "@types/vscode": "^1.96.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
+    "eslint": "^10.1.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.12",
+    "ts-jest": "^29.1.2",
+    "prettier": "^3.5.2",
+    "rimraf": "^6.0.1",
+    "turbo": "^2.4.4",
+    "typescript": "^5.8.2"
+  }
+}

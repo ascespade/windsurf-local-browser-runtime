@@ -1,0 +1,132 @@
+{
+  "work_graph": {
+    "nodes": {
+      "governance_lock": {
+        "id": "governance_lock",
+        "title": "Governance Lock Implementation",
+        "description": "Create locked governance files and guard commands",
+        "priority": 0,
+        "dependencies": [],
+        "verification": [
+          "pnpm guard:verify",
+          "ls AGENTS.md",
+          "ls docs/locked/OPERATING_CONTRACT.md",
+          "ls docs/locked/HANDOFF_PROTOCOL.md",
+          "ls docs/locked/ACCEPTANCE_GATES.json",
+          "ls docs/locked/WORK_GRAPH.json"
+        ],
+        "agent": "cascade"
+      },
+      "truth_lock": {
+        "id": "truth_lock", 
+        "title": "Truth Lock Update",
+        "description": "Update CURRENT_TRUTH.md with accurate repository state",
+        "priority": 1,
+        "dependencies": ["governance_lock"],
+        "verification": [
+          "pnpm guard:verify",
+          "cat docs/reports/CURRENT_TRUTH.md"
+        ],
+        "agent": "cascade"
+      },
+      "browser_hardening": {
+        "id": "browser_hardening",
+        "title": "Browser Runtime Hardening",
+        "description": "Console/network capture, evidence sinks, richer actions",
+        "priority": 2,
+        "dependencies": ["governance_lock", "truth_lock"],
+        "verification": [
+          "pnpm build",
+          "pnpm test",
+          "pnpm guard:verify"
+        ],
+        "agent": "browser_runtime_specialist"
+      },
+      "test_foundation": {
+        "id": "test_foundation",
+        "title": "Test Foundation Creation",
+        "description": "Real test coverage for core units",
+        "priority": 3,
+        "dependencies": ["governance_lock", "truth_lock"],
+        "verification": [
+          "pnpm test",
+          "pnpm guard:verify"
+        ],
+        "agent": "cascade"
+      },
+      "runtime_hardening": {
+        "id": "runtime_hardening",
+        "title": "Remote Runtime Hardening",
+        "description": "Project detection, process management improvements",
+        "priority": 2,
+        "dependencies": ["governance_lock", "truth_lock"],
+        "verification": [
+          "pnpm build",
+          "pnpm test",
+          "pnpm guard:verify"
+        ],
+        "agent": "remote_runtime_specialist"
+      },
+      "orchestrator_hardening": {
+        "id": "orchestrator_hardening",
+        "title": "Orchestrator Hardening",
+        "description": "Workflow coordination and retry logic improvements",
+        "priority": 2,
+        "dependencies": ["governance_lock", "truth_lock"],
+        "verification": [
+          "pnpm build",
+          "pnpm test",
+          "pnpm guard:verify"
+        ],
+        "agent": "orchestrator_specialist"
+      },
+      "ui_extension_completion": {
+        "id": "ui_extension_completion",
+        "title": "UI Extension Completion",
+        "description": "VS Code integration and command handling",
+        "priority": 3,
+        "dependencies": ["governance_lock", "truth_lock"],
+        "verification": [
+          "pnpm build",
+          "pnpm guard:verify"
+        ],
+        "agent": "ui_extension_specialist"
+      }
+    },
+    "edges": [
+      {
+        "from": "governance_lock",
+        "to": "truth_lock",
+        "type": "dependency"
+      },
+      {
+        "from": "truth_lock", 
+        "to": "browser_hardening",
+        "type": "dependency"
+      },
+      {
+        "from": "truth_lock",
+        "to": "test_foundation", 
+        "type": "dependency"
+      },
+      {
+        "from": "truth_lock",
+        "to": "runtime_hardening",
+        "type": "dependency"
+      },
+      {
+        "from": "truth_lock",
+        "to": "orchestrator_hardening",
+        "type": "dependency"
+      },
+      {
+        "from": "truth_lock",
+        "to": "ui_extension_completion",
+        "type": "dependency"
+      }
+    ],
+    "current_work": "truth_lock",
+    "next_allowed": ["browser_hardening", "test_foundation", "runtime_hardening", "orchestrator_hardening", "ui_extension_completion"],
+    "blocked": []
+  }
+}

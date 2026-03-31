@@ -1,0 +1,48 @@
+{
+  "name": "ui-extension",
+  "displayName": "WLBR Local Browser Runtime",
+  "description": "Visible local browser runtime for Windsurf/VS Code style environments with remote project orchestration.",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/extension.js",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "activationEvents": [
+    "onCommand:wlbr.browser.launchVisible",
+    "onCommand:wlbr.remote.startProject",
+    "onCommand:wlbr.orchestrator.launchAndProbe"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "wlbr.browser.launchVisible",
+        "title": "WLBR: Launch Visible Browser Session"
+      },
+      {
+        "command": "wlbr.remote.startProject",
+        "title": "WLBR: Start Remote Project Runtime"
+      },
+      {
+        "command": "wlbr.orchestrator.launchAndProbe",
+        "title": "WLBR: Launch and Probe Current Workspace"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --watch --experimental-strip-types src/extension.ts",
+    "lint": "eslint src --ext .ts",
+    "test": "node --test --experimental-strip-types",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@wlbr/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.96.0"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --watch --experimental-strip-types src/index.ts",
+    "lint": "eslint src --ext .ts",
+    "test": "node --test --experimental-strip-types",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@wlbr/audit-core": "workspace:*",
+    "@wlbr/protocol": "workspace:*",
+    "@wlbr/retry-policy": "workspace:*"
+  }
+}

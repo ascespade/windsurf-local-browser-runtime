@@ -1,0 +1,23 @@
+{
+  "name": "browser-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --watch --experimental-strip-types src/index.ts",
+    "lint": "eslint src --ext .ts",
+    "test": "echo 'No tests implemented for browser-mcp'",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@wlbr/action-engine": "workspace:*",
+    "@wlbr/audit-core": "workspace:*",
+    "@wlbr/protocol": "workspace:*",
+    "@wlbr/session-store": "workspace:*",
+    "@wlbr/target-resolver": "workspace:*"
+  }
+}

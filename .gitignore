@@ -1,0 +1,13 @@
+node_modules
+.pnpm-store
+.turbo
+coverage
+dist
+build
+.vscode-test
+.DS_Store
+.env
+.env.*
+*.log
+artifacts
+sessions
